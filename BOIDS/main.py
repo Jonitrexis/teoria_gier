@@ -3,10 +3,10 @@ import os
 # TODO: Drapieżniki, pożywienie, odpoczynek
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import pygame as pg
-
-from boids import Boid
 from predator import Predator
 from slider import Slider
+
+from boids import Boid
 
 BOIDS_NUM = 100
 
@@ -16,6 +16,7 @@ class Simulation:
         self._running = True
         self._display_surf = None
         self.size = self.width, self.height = 500, 500
+        self.timer_event = pg.USEREVENT + 1
 
     def on_init(self) -> None:
 
@@ -31,6 +32,8 @@ class Simulation:
         pg.display.set_caption(title="boids")
 
         self.clock = pg.time.Clock()
+        # ustawiamy timer na 30s
+        pg.time.set_timer(self.timer_event, 30000)
         self._running = True
 
         self.all_sprites_group = pg.sprite.Group()
@@ -45,8 +48,9 @@ class Simulation:
 
         self.predators = pg.sprite.Group()
         predator = Predator()
-        self.boids.add(predator)
+        predator.set_prey(boids=self.boids)
         self.all_sprites_group.add(predator)
+        self.predators.add(predator)
 
         self.cohesion_slider = Slider(
             position=(self.width - 100, 50),
@@ -96,12 +100,17 @@ class Simulation:
             self._running = False
         for slider in self.sliders.sprites():
             slider.handle_event(event)
+        if event.type == self.timer_event:
+            # co 30 sekund wyłącz tryb ataku predatorowi
+            pred = self.predators.sprites()[0]
+            pred.attack = not pred.attack
 
     def on_loop(self) -> None:
         for boid in self.boids:
             boid.cohesion_factor = self.cohesion_slider.get_value() * 0.001
             boid.separation_factor = self.separation_slider.get_value() * 0.01
             boid.alignment_factor = self.alignment_slider.get_value() * 0.01
+
         self.all_sprites_group.update()
 
     def on_render(self) -> None:

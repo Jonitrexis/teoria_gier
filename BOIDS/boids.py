@@ -28,6 +28,10 @@ class Boid(Vehicle):
         super().__init__(color=(209, 125, 146), max_speed=self.max_speed)
 
     def update(self) -> None:
+        # TODO: tryb ucieczki
+        # czas przez ileś iteracji czas ucieczki
+        # na przykład większa waga odnośnie predatora z zasady rozdzielności
+        # bawić się regułam wpływania na boida, jeśli jest w trybie uciekania
         super().update(self.get_neighbors_influence(), self.max_acceleration)
 
     def get_neighbors_influence(self) -> pg.Vector2:
