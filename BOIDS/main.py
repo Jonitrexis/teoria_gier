@@ -164,11 +164,13 @@ class Simulation:
         self.all_sprites_group.draw(surface=self._display_surf)
         if self._paused:
             # zatrzymujemy predatora
-            #
+            # i wyświetlamy tekst wielki na ekran
             self.predator.velocity = pg.Vector2(0, 0)
             font = pg.font.SysFont(None, 36)
             text = font.render(
-                "Wszystkie boidy nie żyją,\n\n by zrestartować symulację\n\n naciśnij R",
+                "Wszystkie boidy nie żyją,"
+                + "\n\n by zrestartować symulację"
+                + "\n\n naciśnij R",
                 True,
                 (255, 255, 255),
             )
