@@ -50,28 +50,34 @@ class Slider(pg.sprite.Sprite):
             self.maximum_value - self.minimum_value
         ) + self.minimum_value
 
-    def update(self):
-        # całkowicie wyczyść obraz (cały sprite)
-        self.image.fill((0, 0, 0, 0))
+    def render_label(self) -> None:
         # rysuj etykietę na górze
         text = pg.font.Font(None, 15).render(
             f"{self.slider_name} {int(self.get_value())}", True, "white"
         )
         text_rect = text.get_rect(center=(self.image.get_width() // 2, 10))
         self.image.blit(text, text_rect)
+
+    def update(self) -> None:
+        # całkowicie wyczyść obraz (cały sprite)
+        self.image.fill((0, 0, 0, 0))
+        self.render_label()
         pg.draw.rect(self.image, "yellow", self.slider_rect)
         pg.draw.rect(self.image, "green", self.button_rect)
 
-    def move_slider(self, new_x: int):
+    def move_slider(self, new_x: int) -> None:
         # nowa lokalna pozycja przycisku (ograniczona do szerokości slidera)
         new_x = max(0, min(new_x, self.size[0]))
         self.button_rect.centerx = new_x
 
-    def handle_event(self, event):
+    def handle_event(self, event: pg.event.Event) -> None:
         if event.type == pg.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 # przeliczamy pozycję lokalną
-                local = (event.pos[0] - self.rect.left, event.pos[1] - self.rect.top)
+                local = (
+                    event.pos[0] - self.rect.left,
+                    event.pos[1] - self.rect.top,
+                )
                 if self.button_rect.collidepoint(local):
                     self.button_grabbed = True
         elif event.type == pg.MOUSEBUTTONUP:

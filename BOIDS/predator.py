@@ -1,6 +1,8 @@
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
+
+# pygame-ce zamiast pygame
 import pygame as pg
 from vehicle import Vehicle
 
@@ -8,9 +10,16 @@ from boids import Boid
 
 
 class Predator(Vehicle):
-    max_acceleration = 0.05
+    MAX_ATTACK_SPEED = 2.1
+    MAX_ATTACK_ACCELERATION = 0.3
+    MAX_NORMAL_SPEED = 1.0
+    MAX_NORMAL_ACCELERATION = 0.05
+    D_MIN_ATTACK = 100
+    D_MIN_NORMAL = 40
 
-    max_speed = 1.0
+    max_acceleration = MAX_NORMAL_ACCELERATION
+
+    max_speed = MAX_NORMAL_SPEED
     # kąt obserwacji
     perception = 120
     # promień sąsiedzctwa
@@ -22,7 +31,7 @@ class Predator(Vehicle):
     # waga rozdzielności
     separation_factor = -10
     # odległośc minimalna
-    d_min = 40
+    d_min = D_MIN_NORMAL
     # waga losowych zakłóceń
     disturbance = 0.01
 
@@ -30,40 +39,63 @@ class Predator(Vehicle):
 
     attack = False
 
+    base_color: Tuple[int, int, int] = (0, 239, 255)
+    attack_color: Tuple[int, int, int] = (255, 0, 0)
+
     def __init__(self) -> None:
-        super().__init__(color=(0, 239, 255), max_speed=self.max_speed)
+        super().__init__(color=self.base_color, max_speed=self.max_speed)
+        # inicjalizacja listy boidów
+        self.boids = []
 
     def update(self) -> None:
+        self.update_color()
         super().update(self.pursue(), self.max_acceleration)
 
-    def pursue(self) -> pg.Vector2:
-        # TODO dodać logikę podążania za boidami:
-        # TODO jeśli widzi boida, to idzie w atak
-        # Zmieniamy prędkość, by poszedł w kierunku boida
-        # zasada separacji odwrócona
-        # przez ileś iteracji w trybie ataku
-        # w trybie ataku Vmax i w trybie spoczynku V_max mniejsze
-        # można z trybu spójności, predator leci w stronę stada
-
+    def update_color(self) -> None:
+        # TODO: znaleźć błąd dlaczego miga kilka razy,
+        # a później zmienia kolor na bazowy
+        self.original_image.fill((0, 0, 0, 0))
         if self.attack:
-            self.max_speed = 2.1
-            self.max_acceleration = 0.3
-            print("PREDATOR W TRYBIE ATAKU")
+            pg.gfxdraw.filled_polygon(
+                self.original_image,
+                self.TRIANGLE_POINTS,
+                self.attack_color,
+            )
         else:
-            self.max_speed = 1.0
-            self.max_acceleration = 0.05
+            pg.gfxdraw.filled_polygon(
+                self.original_image,
+                self.TRIANGLE_POINTS,
+                self.base_color,
+            )
+
+    def pursue(self) -> pg.Vector2:
+        if self.attack:
+            self.max_speed = self.MAX_ATTACK_SPEED
+            self.max_acceleration = self.MAX_ATTACK_ACCELERATION
+            self.d_min = self.D_MIN_ATTACK
+
+        else:
+            self.d_min = self.D_MIN_NORMAL
+            self.max_speed = self.MAX_NORMAL_SPEED
+            self.max_acceleration = self.MAX_NORMAL_ACCELERATION
         return self.find_nearest_boid()
 
-    def find_nearest_boid(self):
+    def find_nearest_boid(self) -> pg.Vector2:
         separation_force = pg.Vector2(0, 0)
-        cached_angle_rad = np.radians(self.cached_angle)
+        cached_angle_rad = np.radians(self.last_rotation_angle)
         perception_half = np.radians(self.perception / 2)
         distance_min = np.inf
+        if not self.boids:
+            # brak boidów, brak akcji
+            return pg.Vector2(0, 0)
         for boid in self.boids:
             distance_to_boid = self.position.distance_to(boid.position)
             if distance_to_boid < distance_min:
                 distance_min = distance_to_boid
                 self.closest_boid = boid
+        if self.closest_boid is None:
+            # brak najbliższego boida, nie robimy nic
+            return pg.Vector2(0, 0)
         if distance_min < self.neighborhood_radius:
             angle_to_boid = np.arctan2(
                 self.closest_boid.position.y - self.position.y,
@@ -76,7 +108,11 @@ class Predator(Vehicle):
             #  to zmniejszamy ją
             if angle_diff > np.pi:
                 angle_diff = 2 * np.pi - angle_diff
+            # sprawdzamy, czy boid jest w zasięgu percepcji
             if angle_diff < perception_half:
+                # jeśli odległość jest mniejsza niż minimalna,
+                # obliczamy siłę separacji i używamy jej z przeciwnym
+                # znakiem by nasz predator podążał za boidami
                 if 0 < abs(distance_min) < self.d_min:
                     separation_strength = self.separation_factor * (
                         (1 - (self.d_min / abs(distance_min)))
@@ -100,5 +136,5 @@ class Predator(Vehicle):
             )
         )
 
-    def set_prey(self, boids: List["Boid"]):
+    def set_prey(self, boids: List[Boid]) -> None:
         self.boids = boids
