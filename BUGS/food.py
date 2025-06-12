@@ -6,6 +6,7 @@ from consts import FOOD_BASE_SURFACE, TILE_SIZE
 class Food(pg.sprite.DirtySprite):
     def __init__(self, spatial_grid):
         super().__init__()
+        self.is_food = True
         screen = pg.display.get_surface()
         width, height = screen.get_width(), screen.get_height()
         x = (

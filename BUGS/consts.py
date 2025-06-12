@@ -2,10 +2,22 @@ import pygame as pg
 
 TILE_SIZE = 2
 
-# === Optymalizacja Surface dla Bug ===
-BUG_BASE_SURFACE = pg.Surface((TILE_SIZE * 3 - 1, TILE_SIZE * 3 - 1))
-BUG_BASE_SURFACE.fill((0, 255, 0))
+CREATURE_BASE_SURFACE = pg.Surface((TILE_SIZE * 3 - 1, TILE_SIZE * 3 - 1))
+CREATURE_BASE_SURFACE.fill((0, 255, 0))
 
-# === Optymalizacja Surface dla Food ===
 FOOD_BASE_SURFACE = pg.Surface((TILE_SIZE - 1, TILE_SIZE - 1))
 FOOD_BASE_SURFACE.fill(pg.Color("red"))
+
+STARTING_PREDATORS = 4
+STARTING_BUGS = 30
+FOOD_INTERVAL = 4
+
+PREDATOR_MAX_AGE = 150
+PREDATOR_MAX_ENERGY = 180
+
+FOOD_ENERGY = 12
+BUG_MAX_AGE = 300
+BUG_MAX_ENERGY = 100
+
+CREATURE_ENERGY_LOSS = 0.15
+CREATURE_AGE_GAIN = 1

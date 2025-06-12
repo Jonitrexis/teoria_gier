@@ -1,10 +1,11 @@
 import numpy as np
 import pygame as pg
-from consts import TILE_SIZE
+from bug import Bug
+from consts import FOOD_INTERVAL, STARTING_BUGS, STARTING_PREDATORS, TILE_SIZE
 from food import Food
+from predator import Predator
+from smell_map import SmellMap
 from spatial_grid import SpatialGrid
-
-from bugs import Bug
 
 
 class Simulation:
@@ -12,7 +13,7 @@ class Simulation:
         self._running = True
         self._display_surf = None
         self._paused = False
-        self.size = self.width, self.height = 1001, 1001
+        self.size = self.width, self.height = 501, 501
         self.food_event = pg.USEREVENT + 1
         self.spatial_grid = SpatialGrid(
             self.size[0],
@@ -21,15 +22,18 @@ class Simulation:
         )
         self.food_group = pg.sprite.Group()
         self.bugs_group = pg.sprite.Group()
+        self.predators_group = pg.sprite.Group()
         self.clock = None
         self.background = None
+
+        self.smell_map = SmellMap(self.width, self.height)
 
     def populate(self):
         """Tworzy początkową populację jedzenia i bugów."""
         for _ in range(round(self.width * 10)):
             food = Food(spatial_grid=self.spatial_grid)
             self.food_group.add(food)
-        for _ in range(60):
+        for _ in range(STARTING_BUGS):
             Bug(
                 position=pg.math.Vector2(
                     (
@@ -40,6 +44,20 @@ class Simulation:
                 food_group=self.food_group,
                 spatial_grid=self.spatial_grid,
                 bugs_group=self.bugs_group,
+                smell_map=self.smell_map,
+            )
+        for _ in range(STARTING_PREDATORS):
+            Predator(
+                position=pg.math.Vector2(
+                    (
+                        np.random.random() * self.width,
+                        np.random.random() * self.height,
+                    )
+                ),
+                spatial_grid=self.spatial_grid,
+                bugs_group=self.bugs_group,
+                predators_group=self.predators_group,
+                smell_map=self.smell_map,
             )
 
     def on_init(self) -> None:
@@ -47,7 +65,7 @@ class Simulation:
 
         pg.init()
 
-        pg.time.set_timer(self.food_event, 2)
+        pg.time.set_timer(self.food_event, FOOD_INTERVAL)
 
         self._display_surf = pg.display.set_mode(
             size=self.size,
@@ -81,14 +99,20 @@ class Simulation:
     def on_loop(self) -> None:
         """Aktualizuje logikę symulacji."""
         self.bugs_group.update()
+        self.predators_group.update()
+
+        self.smell_map.diffuse()
+
         if not self.bugs_group.sprites() and not self._paused:
             self._paused = True
 
     def on_render(self) -> None:
         """Rysuje elementy symulacji na ekranie."""
         self._display_surf.fill((0, 0, 0))
+        self.smell_map.render(self._display_surf)
         self.food_group.draw(surface=self._display_surf)
         self.bugs_group.draw(surface=self._display_surf)
+        self.predators_group.draw(surface=self._display_surf)
         if self._paused:
             font = pg.font.SysFont(None, 36)
             text = font.render(
@@ -106,14 +130,13 @@ class Simulation:
             )
             self._display_surf.blit(text, text_rect)
         pg.display.update()
-        self.clock.tick(3000)
+        self.clock.tick(30)
 
     def on_cleanup(self) -> None:
         pg.quit()
 
-    # our main game loop
-
     def on_execute(self) -> None:
+        """Główna pętla symulacji."""
         if self.on_init() is False:
             self._running = False
         while self._running:
@@ -130,7 +153,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
-    # import cProfile as profile
+    # main()
+    import cProfile as profile
 
-    # profile.run("main()", sort="tottime")
+    profile.run("main()", sort="tottime")

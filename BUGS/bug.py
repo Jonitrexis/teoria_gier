@@ -1,42 +1,28 @@
 import colorsys
 
 import numpy as np
-import pygame as pg
-from consts import BUG_BASE_SURFACE, TILE_SIZE
-from food import Food
+from creature import Creature
+from consts import FOOD_ENERGY, BUG_MAX_AGE, BUG_MAX_ENERGY
 
 
-class Bug(pg.sprite.DirtySprite):
-    turns = ["F", "R", "HR", "RV", "HL", "L"]
-    turn_angles = {"F": 0, "R": 60, "HR": 120, "RV": 180, "HL": -120, "L": -60}
-    energy_max = 100.0
-    food_sustenance = 12
-    age_max: int = 300
-
-    energy_min = 60.0
-    age_min: int = 130
+class Bug(Creature):
 
     mutation_probability = 0.25
-    __slots__ = [
-        "rect",
-        "age",
-        "energy",
-        "image",
-        "position",
+    __slots__ = Creature.__slots__ + [
         "genes",
-        "direction",
-        "dirty",
-        "blendmode",
-        "_visible",
-        "move_vector",
-        "spatial_grid",
         "food_group",
         "bugs_group",
-        "base_color",
-        "current_hue_level",
+        "smell_map",
     ]
 
-    def __init__(self, position, food_group, spatial_grid, bugs_group):
+    def __init__(
+        self,
+        position,
+        food_group,
+        spatial_grid,
+        bugs_group,
+        smell_map,
+    ):
         """
         Inicjalizuje nowego buga.
 
@@ -46,23 +32,22 @@ class Bug(pg.sprite.DirtySprite):
             spatial_grid (SpatialGrid):
             Siatka przestrzenna do zarządzania położeniem.
             bugs_group (pg.sprite.Group): Grupa sprite'ów z innymi bugami.
+            smell_map (SmellMap): Mapa zapachu rozprzestrzenianego dyfuzją.
         """
-        super().__init__()
-        self.image: pg.Surface = BUG_BASE_SURFACE.copy()
-        self.base_color = (0, 255, 0)  # młody = zielony
-        self.current_hue_level = None
-        self.image.fill(self.base_color)
-        self.position: pg.Vector2 = position
-        self.rect: pg.Rect = self.image.get_rect(center=self.position)
-        self.direction = pg.Vector2(0, -1).normalize()
-        self.move_vector = pg.Vector2(0, 0)
+        super().__init__(
+            position,
+            spatial_grid,
+            base_color=(0, 255, 0),
+            energy_max=BUG_MAX_ENERGY,
+            age_max=BUG_MAX_AGE,
+        )
+        self.is_bug = True
         self.food_group = food_group
-
-        self.spatial_grid = spatial_grid
-        self.spatial_grid.add(self)
 
         self.bugs_group = bugs_group
         self.bugs_group.add(self)
+
+        self.smell_map = smell_map
 
         self.genes = {
             "F": 0.0,
@@ -72,23 +57,17 @@ class Bug(pg.sprite.DirtySprite):
             "HL": -1.0,
             "L": 3.0,
         }
-        self.energy = 50
-        self.age = 0
 
     def update(self):
         if not self.alive():
             return
-        self.age_bug()
+        self.age_creature()
         self.do_suicide()
         self.eat_food()
         self.move()
         self.multiply()
         self.update_color_by_age()
-
-    def age_bug(self) -> None:
-        """Zmniejsza energię buga i zwiększa jego wiek."""
-        self.energy = self.energy - 0.25
-        self.age = self.age + 1
+        self.leave_smell()
 
     def update_color_by_age(self) -> None:
         """Aktualizuje kolor buga na podstawie jego wieku
@@ -131,41 +110,25 @@ class Bug(pg.sprite.DirtySprite):
 
         # obrót kierunku
         rotated_direction = self.direction.rotate(angle)
-        self.move_vector = rotated_direction * 2 * TILE_SIZE
-        new_position = self.position + self.move_vector
-
-        screen_width, screen_height = pg.display.get_surface().get_size()
-        new_position.x = new_position.x % screen_width
-        new_position.y = new_position.y % screen_height
-
-        self.position = new_position
-        self.rect.center = self.position
-        self.direction = rotated_direction.normalize()
-
-        self.dirty = 1
-        self.spatial_grid.update(self)
+        self.move_forward(rotated_direction)
 
     def eat_food(self):
         """Sprawdza, czy bug może zjeść pobliskie
         jedzenie i jeśli tak, zjada je."""
-        if self.energy + self.food_sustenance <= self.energy_max:
-            nearby_sprites = self.spatial_grid.get_nearby(self)
-            for sprite in nearby_sprites:
-                if isinstance(
-                    sprite,
-                    Food,
-                ) and self.rect.colliderect(sprite.rect):
-                    self.spatial_grid.remove(sprite)
-                    sprite.kill()
-                    self.energy += self.food_sustenance
-                    break
+        if self.energy + FOOD_ENERGY > self.energy_max:
+            return
 
-    def do_suicide(self):
-        """Sprawdza, czy bug powinien umrzeć z powodu
-        braku energii lub starości i usuwa go."""
-        if self.energy <= 0.5 or self.age >= self.age_max:
-            self.spatial_grid.remove(self)
-            self.kill()
+        nearby = self.spatial_grid.get_nearby(self)
+        # znajdujemy tylko pierwsze jedzenie który się z nami zderza
+        nearby_food = [s for s in nearby if s in self.food_group]
+        target = next(
+            (s for s in nearby_food if self.rect.colliderect(s.rect)),
+            None,
+        )
+        if target:
+            self.spatial_grid.remove(target)
+            target.kill()
+            self.energy += FOOD_ENERGY
 
     def multiply(self) -> None:
         """Sprawdza, czy bug może się
@@ -176,11 +139,10 @@ class Bug(pg.sprite.DirtySprite):
                 self.food_group,
                 self.spatial_grid,
                 self.bugs_group,
+                self.smell_map,
             )
             self.energy //= 2
             child.energy = self.energy
-            if child.energy != self.energy:
-                print(f"CHILD:{child.energy} PARENT:{self.energy}")
             child.genes = self.genes.copy()
             if np.random.random() < self.mutation_probability:
                 random_gene = np.random.choice(self.turns)
@@ -188,3 +150,9 @@ class Bug(pg.sprite.DirtySprite):
             self.spatial_grid.add(child)
             self.spatial_grid.update(child)
             self.dirty = 1
+
+    def leave_smell(self):
+        """Bug zostawia zapach na swojej aktualnej pozycji."""
+        grid_x = int(self.position.x)
+        grid_y = int(self.position.y)
+        self.smell_map.add_smell_source(grid_x, grid_y, amount=1.0)
