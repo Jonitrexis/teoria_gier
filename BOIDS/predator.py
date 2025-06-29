@@ -1,8 +1,6 @@
 from typing import List, Tuple
 
 import numpy as np
-
-# pygame-ce zamiast pygame
 import pygame as pg
 from vehicle import Vehicle
 
@@ -52,8 +50,6 @@ class Predator(Vehicle):
         super().update(self.pursue(), self.max_acceleration)
 
     def update_color(self) -> None:
-        # TODO: znaleźć błąd dlaczego miga kilka razy,
-        # a później zmienia kolor na bazowy
         self.original_image.fill((0, 0, 0, 0))
         if self.attack:
             pg.gfxdraw.filled_polygon(

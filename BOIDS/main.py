@@ -1,7 +1,3 @@
-import os
-
-# ukrywamy prompt supportu pygame
-os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "hide"
 import numpy as np
 import pygame as pg
 from food import Food

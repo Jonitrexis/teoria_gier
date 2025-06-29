@@ -115,7 +115,8 @@ class Predator(Creature):
                 ):
                     self.move_forward(new_dir)
                     return
-            return  # Nie udało się znaleźć dobrego kierunku
+            # Nie udało się znaleźć dobrego kierunku
+            return
         else:
             angle = self.turn_angles[best_turn]
             new_dir = self.direction.rotate(angle)
